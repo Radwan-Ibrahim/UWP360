@@ -1,4 +1,7 @@
-﻿#pragma once
+﻿// Image360 implementation: control lifecycle, asset loading, input handling
+// and the Direct3D render loop.
+
+#pragma once
 #include "pch.h"
 #include "Image360.h"
 #include "Common\DirectXHelper.h"
@@ -32,22 +35,28 @@ using namespace DirectX360Image;
 using namespace VSD3DStarter;
 using namespace DX;
 
-
+// ============================================================================
+// Construction / destruction
+// ============================================================================
 
 Image360::Image360()
 {
 	critical_section::scoped_lock lock(m_criticalSection);
+
+	// Scale the unit sphere up and place the camera at its center looking down +Z.
 	m_Transform = ref new DirectX360Image::Transform();
 	m_Transform->Scale = float3(5, 5, 5);
 	m_Camera = ref new DirectX360Image::Camera();
 	m_Camera->LookAt(float3(0.0f, 0.0f, 0.0f), float3(0.0f, 0.0f, 4.0f), float3(0.0f, 1.0f, 0.0f));
+
+	// Horizontal/vertical drag rotates the camera.
 	this->ManipulationMode = ManipulationModes::TranslateX| ManipulationModes::TranslateY;
 	this->Unloaded += ref new RoutedEventHandler(this, &Image360::OnUnloaded);
 	this->ManipulationDelta += ref new Windows::UI::Xaml::Input::ManipulationDeltaEventHandler(this, &Image360::OnManipulationDelta);
+
 	CreateDeviceIndependentResources();
 	CreateDeviceResources();
 	CreateSizeDependentResources();
-
 }
 
 Image360::~Image360()
@@ -60,6 +69,10 @@ Image360::~Image360()
 	if (m_skinnedMeshRenderer != nullptr)
 		delete	m_skinnedMeshRenderer;
 }
+
+// ============================================================================
+// Dependency properties & accessors
+// ============================================================================
 
 DependencyProperty^ DirectX360Image::Image360::m_TextureSourceProperty = DependencyProperty::Register("TextureSource", Windows::Foundation::Uri::typeid, Image360::typeid, ref new PropertyMetadata(nullptr,
 	ref new PropertyChangedCallback(&Image360::OnTextureSourceChanged))
@@ -77,12 +90,10 @@ Platform::String^ Image360::ModelName::get()
 	return m_ModelName;
 }
 
-
 void Image360::ModelName::set(Platform::String^ value)
 {
 	m_ModelName = value;
 }
-
 
 DirectX360Image::Transform^ Image360::Transform::get()
 {
@@ -94,7 +105,11 @@ DirectX360Image::Camera^ Image360::Camera::get()
 	return m_Camera;
 }
 
+// ============================================================================
+// Texture / model loading
+// ============================================================================
 
+// First call loads the sphere mesh; later calls only swap the texture and reset the view.
 void DirectX360Image::Image360::SetTextureSource(Windows::Foundation::Uri ^source)
 {
 	if (m_meshModels.size() == 0)
@@ -108,29 +123,33 @@ void DirectX360Image::Image360::SetTextureSource(Windows::Foundation::Uri ^sourc
 	}
 	else
 	{
-
 		m_graphics.GetOrCreateTextureAsync(source->RawUri->Data()).then([this](ID3D11ShaderResourceView* textureResource)
 		{
 			m_Camera->LookAt(float3(0.0f, 0.0f, 0.0f), float3(0.0f, 0.0f, 4.0f), float3(0.0f, 1.0f, 0.0f));
 			this->m_meshModels[0]->Materials()[0].Textures[0] = textureResource;
 		});
-
 	}
 
 	StartRenderLoop();
 }
+
+// ============================================================================
+// Input & lifecycle events
+// ============================================================================
 
 void Image360::OnUnloaded(Platform::Object ^sender, Windows::UI::Xaml::RoutedEventArgs ^e)
 {
 	StopRenderLoop();
 }
 
+// Drag distance (pixels) is used directly as degrees of yaw/pitch.
 void Image360::OnManipulationDelta(Platform::Object ^sender, Windows::UI::Xaml::Input::ManipulationDeltaRoutedEventArgs ^e)
-{	
+{
 	m_Camera->RotateY(XMConvertToRadians(-e->Delta.Translation.X));
 	m_Camera->Pitch(XMConvertToRadians(-e->Delta.Translation.Y));
 }
 
+// Note: meshFilename is currently ignored; "Sphere.cmo" is always loaded.
 concurrency::task<void> Image360::LoadAsync(Graphics& graphics,
 	const std::wstring& meshFilename,
 	const std::wstring& TextureUrl,
@@ -138,7 +157,6 @@ concurrency::task<void> Image360::LoadAsync(Graphics& graphics,
 	const std::wstring& shaderPathLocation,
 	const std::wstring& texturePathLocation
 )
-
 {
 	isanimated = IsAnimated;
 
@@ -146,7 +164,6 @@ concurrency::task<void> Image360::LoadAsync(Graphics& graphics,
 
 	if (isanimated)
 	{
-
 		return task.then([this]()
 		{
 			for (Mesh* m : m_meshModels)
@@ -158,7 +175,6 @@ concurrency::task<void> Image360::LoadAsync(Graphics& graphics,
 					m->Tag = animState;
 				}
 			}
-
 		}).then([this, &graphics]() {
 			m_skinnedMeshRenderer = new SkinnedMeshRenderer();
 			return m_skinnedMeshRenderer->InitializeAsync(graphics.GetDevice(), graphics.GetDeviceContext());
@@ -168,9 +184,11 @@ concurrency::task<void> Image360::LoadAsync(Graphics& graphics,
 	{
 		return task;
 	}
-
-
 }
+
+// ============================================================================
+// Render loop
+// ============================================================================
 
 void Image360::StartRenderLoop()
 {
@@ -226,10 +244,8 @@ void Image360::Render()
 
 	if (isanimated)
 	{
-
 		for (UINT i = 0; i < m_meshModels.size(); i++)
 		{
-
 			if (m_meshModels[i]->Tag != nullptr)
 			{
 				// Mesh has animation - render skinned mesh.
@@ -248,13 +264,15 @@ void Image360::Render()
 		{
 			// Mesh does not have animation - render as usual.
 			m_meshModels[i]->Render(m_graphics, m_Camera, m_TransformMatrix);
-
 		}
 	}
 
-
 	Present();
 }
+
+// ============================================================================
+// Direct3D resource creation
+// ============================================================================
 
 void Image360::CreateDeviceResources()
 {
@@ -270,13 +288,14 @@ void Image360::CreateDeviceResources()
 		dxgiFactory->EnumAdapters(0, &dxgiAdapter)
 	);
 
+	// Primary output is used to wait for vblank in the render loop.
 	ThrowIfFailed(
 		dxgiAdapter->EnumOutputs(0, &m_dxgiOutput)
 	);
 
 	m_graphics.Initialize(m_d3dDevice.Get(), m_d3dContext.Get(), m_d3dFeatureLevel);
 
-
+	// Culling is disabled so the sphere's inner faces (seen from the center) are drawn.
 	CD3D11_RASTERIZER_DESC d3dRas(D3D11_DEFAULT);
 	d3dRas.CullMode = D3D11_CULL_NONE;
 	d3dRas.MultisampleEnable = true;
@@ -285,13 +304,10 @@ void Image360::CreateDeviceResources()
 	ComPtr<ID3D11RasterizerState> p3d3RasState;
 	m_d3dDevice->CreateRasterizerState(&d3dRas, &p3d3RasState);
 	m_d3dContext->RSSetState(p3d3RasState.Get());
-
-
 }
 
 void Image360::CreateSizeDependentResources()
 {
-
 	m_renderTargetView = nullptr;
 	m_depthStencilView = nullptr;
 
@@ -350,13 +366,11 @@ void Image360::CreateSizeDependentResources()
 	m_miscConstants.ViewportWidth = m_renderTargetWidth;
 	m_graphics.UpdateMiscConstants(m_miscConstants);
 
-
+	// Projection: 70 degree vertical field of view.
 	float aspectRatio = m_renderTargetWidth / m_renderTargetHeight;
 	float fovAngleY = 70.0f * XM_PI / 180.0f;
 
-
 	XMFLOAT3 up = XMFLOAT3(0.0f, 1.0f, 0.0f);
-
 
 	float4x4 orientation =
 		float4x4(
@@ -369,8 +383,7 @@ void Image360::CreateSizeDependentResources()
 	m_Camera->SetLens(fovAngleY, aspectRatio, orientation, 1.00f, 1000.0f);
 	m_Camera->UpdateViewMatrix();
 
-
-	// Setup lightinUpdateViewMatrix();g for our scene.
+	// Setup lighting for our scene.
 	static const XMVECTORF32 s_vPos = { 0.0f, 1.0f, 0.0f, 0.f };
 
 	XMFLOAT4 dir;
@@ -385,7 +398,6 @@ void Image360::CreateSizeDependentResources()
 
 	m_graphics.UpdateLightConstants(m_lightConstants);
 }
-
 
 void Image360::Clear(Color color)
 {

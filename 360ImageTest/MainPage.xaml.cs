@@ -20,26 +20,26 @@ using Windows.UI.Xaml.Navigation;
 namespace _360ImageTest
 {
     /// <summary>
-    /// An empty page that can be used on its own or navigated to within a Frame.
+    /// Sample page hosting the Image360 control and a button that swaps the panorama.
     /// </summary>
     public sealed partial class MainPage : Page
     {
         public MainPage()
         {
             this.InitializeComponent();
-           
         }
-       
+
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
         }
+
         protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
         {
             base.OnNavigatingFrom(e);
-           
         }
 
+        // Setting TextureSource at runtime swaps the texture without reloading the mesh.
         private void OnClicked(object sender, RoutedEventArgs e)
         {
             Image_360.TextureSource=new Uri("https://i.ytimg.com/vi/zahhBhg2z-Q/maxresdefault.jpg");

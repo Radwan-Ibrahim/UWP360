@@ -11,6 +11,7 @@
 namespace DirectX360Image
 {
     // Base class for a SwapChainPanel-based DirectX rendering surface to be used in XAML apps.
+    // Owns the D3D device, context and swap chain and handles resize, DPI, suspend and device-lost.
     [Windows::Foundation::Metadata::WebHostHidden]
     public ref class DirectXPanelBase : public Windows::UI::Xaml::Controls::SwapChainPanel
     {

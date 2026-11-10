@@ -8,12 +8,12 @@ using namespace DirectX;
 using namespace DirectX360Image;
 using namespace VSD3DStarter;
 
+// Defaults: origin, looking down +Z, 45 degree FOV, square aspect.
 Camera::Camera()
 	: mPosition(0.0f, 0.0f, 0.0f),
 	mRight(1.0f, 0.0f, 0.0f),
 	mUp(0.0f, 1.0f, 0.0f),
 	mLook(0.0f, 0.0f, 1.0f)
-
 {
 	mOrientation = float4x4(
 		1.0f, 0.0f, 0.0f, 0.0f,
@@ -96,7 +96,7 @@ void Camera::SetLens(float fovY, float aspect, float4x4 orientation, float zn, f
 	XMStoreFloat4x4(&mProj, P*orientationMatrix);
 }
 
-
+// Builds the right/up/look basis from a position, target and world-up vector.
 void Camera::LookAt(FXMVECTOR pos, FXMVECTOR target, FXMVECTOR worldUp)
 {
 	XMVECTOR L = XMVector3Normalize(XMVectorSubtract(target, pos));
@@ -221,7 +221,7 @@ void Camera::UpdateViewMatrix()
 	mView(3, 3) = 1.0f;
 }
 
-
+// Legacy code from the original template, kept for reference.
 //void Camera::Update()
 //{
 //	auto outputSize = Graphics::Current->GetDeviceResources()->GetOutputSize();

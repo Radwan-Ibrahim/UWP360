@@ -1150,6 +1150,7 @@ namespace VSD3DStarter
 			}
 		}
 
+		// Customized: http(s) names are downloaded, others are read from the app package; decoded via WIC.
 		concurrency::task<ID3D11ShaderResourceView*> GetOrCreateTextureAsync(const std::wstring& textureName)
 		{
 			auto iter = m_textureResources.find(textureName);
@@ -1550,6 +1551,7 @@ namespace VSD3DStarter
 		}
 
 		// Loads a scene from the specified file, returning a vector of mesh objects.
+		// Customized: the mesh is read from the "DirectX360Image" package folder and TextureUrl overrides its textures.
 		static concurrency::task<void> LoadFromFileAsync(
 			Graphics& graphics,
 			const std::wstring& meshFilename,

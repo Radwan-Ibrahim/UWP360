@@ -6,12 +6,13 @@ using namespace Windows::Foundation::Numerics;
 
 namespace DirectX360Image
 {
+	// First-person camera (left-handed) storing an orthonormal basis plus a perspective projection.
 	public ref class Camera sealed
 	{
 	public:
-		
 		//void Update();
 		void SetPosition(float x, float y, float z);
+
 		// Get frustum properties.
 		property float NearZ {float get() { return mNearZ; } }
 		property float FarZ {float get() { return mFarZ; }}
@@ -26,19 +27,22 @@ namespace DirectX360Image
 		property float NearWindowHeight {float get() { return mNearWindowHeight; }}
 		property float FarWindowWidth {float get() { return mAspect * mFarWindowHeight; }}
 		property float FarWindowHeight {float get() {return mFarWindowHeight; }}
+
 		// Strafe/Walk the camera a distance d.
 		void Strafe(float d);
 		void Walk(float d);
 
-		// Rotate the camera.
+		// Rotate the camera (angles in radians).
 		void Pitch(float angle);
 		void RotateY(float angle);
 
+		// Set frustum and define camera space via LookAt parameters.
 		void SetLens(float fovY, float aspect, float4x4 orientation, float zn, float zf);
 		void LookAt(const float3& pos, const float3& target, const float3& up);
 
 	internal:
 		Camera();
+
 		// Get/Set world camera position.
 		XMVECTOR GetPositionXM()const;
 		XMFLOAT3 GetPosition()const;
@@ -53,19 +57,16 @@ namespace DirectX360Image
 		XMVECTOR GetLookXM()const;
 		XMFLOAT3 GetLook()const;
 
-		// Set frustum.
-
+		// Extra transform multiplied into the projection (e.g. display rotation).
 		void SetOrientationMatrix(XMFLOAT4X4 orientation);
 
 		// Define camera space via LookAt parameters.
 		void LookAt(FXMVECTOR pos, FXMVECTOR target, FXMVECTOR worldUp);
 
-
 		// Get View/Proj matrices.
 		XMMATRIX View()const;
 		XMMATRIX Proj()const;
 		XMMATRIX ViewProj()const;
-
 
 		// After modifying camera position/orientation, call to rebuild the view matrix.
 		void UpdateViewMatrix();
